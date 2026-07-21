@@ -82,7 +82,6 @@
     <Compile Include="App_Start\WebApiConfig.cs" />
     <Compile Include="Controllers\ProductosController.cs" />
     <Compile Include="Data\VentaPlusDbContext.cs" />
-    <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Models\Producto.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>

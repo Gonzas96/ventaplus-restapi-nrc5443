@@ -1,63 +1,77 @@
-# Venta Plus - API REST + Cliente Web PHP
+# Venta Plus - API REST (Proyecto 1)
 
-Proyecto para NRC-5443 (Desarrollo de Aplicaciones Empresariales Avanzado). Migracion del sistema Venta Plus de WCF a una arquitectura REST.
+Proyecto para NRC-5443 (Desarrollo de Aplicaciones Empresariales Avanzado). Migración del sistema Venta Plus de WCF a una arquitectura REST.
 
-## Estructura del repositorio
+> El cliente web (Proyecto 2) vive en un repositorio separado: `venta-plus-webclient` (Node.js + Express + EJS).
+
+## Estructura
 
 ```
-/VentaPlus.WebApi        -> Proyecto 1: ASP.NET Web API REST (.NET Framework 4.7.2, EF Code First)
-/VentaPlus.WebClientPHP  -> Proyecto 2: Cliente Web en PHP (consume la API por HTTP)
-VentaPlus.sln            -> Solucion de Visual Studio (solo abre el proyecto de la API)
+/VentaPlus.WebApi   -> Proyecto 1: ASP.NET Web API REST (.NET Framework 4.7.2, EF Code First)
+VentaPlus.sln        -> Solución de Visual Studio
 ```
 
-La aplicacion cliente **no usa Entity Framework ni se conecta a SQL Server**; toda la data llega mediante peticiones HTTP a `VentaPlus.WebApi`.
+## Requisitos
 
----
-
-## 1. Proyecto 1: VentaPlus.WebApi (Visual Studio)
-
-### Requisitos
 - Visual Studio 2019 o 2022 con la carga de trabajo "Desarrollo web y ASP.NET"
 - SQL Server (LocalDB, Express o completo)
 
-### Pasos para levantar el proyecto
+## Pasos para levantar el proyecto
 
-1. Abre `VentaPlus.sln` en Visual Studio.
-2. Visual Studio restaurara automaticamente los paquetes NuGet (EntityFramework, Microsoft.AspNet.WebApi, Newtonsoft.Json). Si no lo hace: clic derecho en la solucion → **Restaurar paquetes NuGet**.
-3. Abre `VentaPlus.WebApi/Web.config` y ajusta la cadena de conexion `VentaPlusDbContext` según tu instancia de SQL Server:
+1. Clona el repositorio y abre `VentaPlus.sln` en Visual Studio.
+2. Visual Studio restaurará automáticamente los paquetes NuGet (EntityFramework, Microsoft.AspNet.WebApi, Newtonsoft.Json). Si no lo hace: clic derecho en la solución → **Restaurar paquetes NuGet**.
+3. Abre `VentaPlus.WebApi/Web.config` y ajusta la cadena de conexión `VentaPlusDbContext` según tu instancia de SQL Server:
    ```xml
    <add name="VentaPlusDbContext"
         connectionString="Data Source=.\SQLEXPRESS;Initial Catalog=VentaPlusRestDB;Integrated Security=True;MultipleActiveResultSets=True"
         providerName="System.Data.SqlClient" />
    ```
+4. Compila la solución (Ctrl+Shift+B) para confirmar que no hay errores antes de tocar migraciones.
+5. Clic derecho sobre `VentaPlus.WebApi` → **"Establecer como proyecto de inicio"** (debe quedar en negrita). Esto es importante porque el Package Manager Console lee el config del proyecto de inicio.
 
-### Pasos para generar la migración inicial (IMPORTANTE)
+## Migraciones de Entity Framework (Code First) — flujo completo
 
-El repositorio incluye `Migrations/Configuration.cs` (habilita Code First Migrations), pero **no** incluye el archivo de migración inicial, porque ese archivo debe generarse desde tu máquina para que Entity Framework capture correctamente el snapshot del modelo. Hazlo así:
+Este repositorio **no** incluye la carpeta `Migrations`; la generas tú desde Visual Studio para tener tus propias capturas/scripts como evidencia de la Pregunta 3.
 
-1. En Visual Studio: **Herramientas → Administrador de paquetes NuGet → Consola del Administrador de paquetes**.
-2. Asegúrate que el "Default project" sea `VentaPlus.WebApi`.
-3. Ejecuta:
-   ```powershell
-   Add-Migration InitialCreate
-   Update-Database
-   ```
-4. Esto crea la base de datos `VentaPlusRestDB` con la tabla `Productos` y la deja poblada con 3 productos de prueba (ver `Seed` en `Configuration.cs`).
+En **Herramientas → Administrador de paquetes NuGet → Consola del Administrador de paquetes** (confirma que el "Default project" sea `VentaPlus.WebApi`):
 
-### Ejecutar la API
+```powershell
+Enable-Migrations
+Add-Migration InitialCreate
+Update-Database
+```
+
+- `Enable-Migrations` crea la carpeta `Migrations` y el archivo `Configuration.cs`.
+- `Add-Migration InitialCreate` genera el script de migración (`XXXXXX_InitialCreate.cs`) a partir del modelo (`Producto.cs`).
+- `Update-Database` aplica la migración y crea la base de datos `VentaPlusRestDB` con la tabla `Productos`.
+
+Si quieres datos de prueba automáticos, abre `Migrations/Configuration.cs` (generado por `Enable-Migrations`) y agrega en el método `Seed`:
+```csharp
+protected override void Seed(VentaPlus.WebApi.Data.VentaPlusDbContext context)
+{
+    context.Productos.AddOrUpdate(
+        p => p.Nombre,
+        new VentaPlus.WebApi.Models.Producto { Nombre = "Laptop Lenovo ThinkPad", Descripcion = "14 pulgadas, 16GB RAM", Precio = 3200.00m, Stock = 15, Categoria = "Computo", Activo = true },
+        new VentaPlus.WebApi.Models.Producto { Nombre = "Mouse Inalambrico Logitech", Descripcion = "Mouse ergonomico", Precio = 45.90m, Stock = 80, Categoria = "Accesorios", Activo = true }
+    );
+}
+```
+Luego vuelve a correr `Update-Database` para que se inserten.
+
+## Ejecutar la API
 
 - Presiona **F5** (o Iniciar sin depurar). Visual Studio levantará el proyecto con IIS Express.
-- Anota el puerto que asigne (ej. `http://localhost:52301/`) y actualízalo en `VentaPlus.WebClientPHP/config.php`.
+- Anota el puerto asignado (ej. `http://localhost:52301/`); lo necesitarás para configurar el cliente web.
 
-### Endpoints REST
+## Endpoints REST
 
-| Método | Ruta                     | Descripción              |
-|--------|--------------------------|---------------------------|
-| GET    | `/api/productos`         | Lista todos los productos |
-| GET    | `/api/productos/{id}`    | Obtiene un producto por id|
-| POST   | `/api/productos`         | Crea un producto          |
-| PUT    | `/api/productos/{id}`    | Actualiza un producto     |
-| DELETE | `/api/productos/{id}`    | Elimina un producto       |
+| Método | Ruta                     | Descripción                |
+|--------|--------------------------|-----------------------------|
+| GET    | `/api/productos`         | Lista todos los productos   |
+| GET    | `/api/productos/{id}`    | Obtiene un producto por id  |
+| POST   | `/api/productos`         | Crea un producto            |
+| PUT    | `/api/productos/{id}`    | Actualiza un producto       |
+| DELETE | `/api/productos/{id}`    | Elimina un producto         |
 
 Ejemplo de body para POST/PUT:
 ```json
@@ -71,51 +85,9 @@ Ejemplo de body para POST/PUT:
 }
 ```
 
-Prueba los endpoints con **Postman** antes de conectar el cliente PHP; es la evidencia que pide la Pregunta 3 del enunciado.
+Prueba los endpoints con **Postman** — captura los 5 métodos para la evidencia de la Pregunta 3.
 
----
+## Arquitectura
 
-## 2. Proyecto 2: VentaPlus.WebClientPHP
-
-### Requisitos
-- PHP 7.4+ con la extensión `curl` habilitada.
-
-### Configuración
-
-Edita `config.php` con la URL donde quedó corriendo la API:
-```php
-define('API_BASE_URL', 'http://localhost:52301/api/productos');
-```
-
-### Ejecutar el cliente
-
-Desde la carpeta `VentaPlus.WebClientPHP`:
-```bash
-php -S localhost:8000
-```
-Abre `http://localhost:8000` en el navegador.
-
-### Funcionalidad
-
-- `index.php` — Lista los productos (GET).
-- `create.php` — Formulario para registrar un producto (POST).
-- `edit.php` — Formulario para editar un producto existente (PUT).
-- `delete.php` — Elimina un producto (DELETE) y redirige al listado.
-- `includes/ApiClient.php` — Única clase que se comunica con la API vía cURL; el resto de archivos PHP no hacen llamadas HTTP directamente.
-
----
-
-## 3. Evidencias sugeridas para la entrega (Pregunta 3)
-
-1. Capturas de los endpoints funcionando en Postman (GET, GET por id, POST, PUT, DELETE).
-2. Capturas del CRUD funcionando desde el cliente web PHP (listar, registrar, editar, eliminar).
-3. Captura de la base de datos generada por Code First (tabla `Productos` en SQL Server Management Studio), y el script de la migración (`Migrations/InitialCreate.cs` una vez generado).
-4. Comprimir todo el proyecto en un `.zip` con el nombre `ApellidoPaterno.zip` según indica el enunciado.
-
----
-
-## Notas de arquitectura
-
-- **Proyecto 1** implementa: arquitectura por capas (Models / Data / Controllers), Entity Framework Code First, Data Annotations en `Producto.cs`, migraciones (`Migrations/Configuration.cs`) y CRUD completo vía Web API REST.
-- **Proyecto 2** consume exclusivamente la API REST vía HTTP (cURL), sin Entity Framework ni acceso directo a SQL Server, cumpliendo la restricción del enunciado.
-- CORS está habilitado en `Web.config` (`Access-Control-Allow-Origin: *`) para permitir que el cliente PHP, corriendo en otro puerto/servidor, pueda consumir la API sin bloqueos del navegador.
+- Arquitectura por capas: `Models` (entidad + Data Annotations), `Data` (DbContext / Code First), `Controllers` (Web API REST).
+- CORS habilitado en `Web.config` (`Access-Control-Allow-Origin: *`) para que el cliente web, corriendo en otro puerto/servidor, pueda consumir la API sin bloqueos del navegador.
